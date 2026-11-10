@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\FavoriteStoreController;
 use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ShoppingListController;
+use App\Http\Controllers\Api\V1\ProductController;
 
 Route::prefix('v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
@@ -19,6 +20,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('preferences', [PreferenceController::class, 'show']);
         Route::put('preferences', [PreferenceController::class, 'update']);
+
+        Route::get('products/search', [ProductController::class, 'search'])->middleware('throttle:30,1');
+        Route::post('products/import', [ProductController::class, 'import'])->middleware('throttle:30,1');
 
         Route::get('shopping-lists', [ShoppingListController::class, 'index']);
         Route::post('shopping-lists', [ShoppingListController::class, 'store']);
