@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'openfoodfacts' => [
+        'user_agent' => env('OPENFOODFACTS_USER_AGENT', 'CoursesMalines/0.2 (https://github.com/jerem001/Courses-Malines)'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
