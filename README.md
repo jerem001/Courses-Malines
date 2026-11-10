@@ -9,10 +9,10 @@ Application de comparaison des courses, d'abord privée, pensée pour une ouvert
 - Gestion des magasins favoris, tableau de bord et interface Vue 3.
 - Tests de routes protégées et d'isolation des données.
 
-**Statut : starter à intégrer à un squelette Laravel neuf, non testé en déploiement complet.** Les véritables catalogues et la géolocalisation arrivent dans les prochains lots.
+**Statut : lot 1 validé sur une VM locale (7 tests / 14 assertions, connexion et préférences depuis Vue), mais dépôt encore partiel : le Laravel complet créé dans `api/` sur la VM n'est pas encore versionné.** Les véritables catalogues et la géolocalisation arrivent dans les prochains lots.
 
 ## Installation sur Debian
-Voir [docs/DEPLOIEMENT-DEBIAN.md](docs/DEPLOIEMENT-DEBIAN.md).
+Voir [docs/DEPLOIEMENT-DEBIAN.md](docs/DEPLOIEMENT-DEBIAN.md) et [docs/APACHE-LOCAL.md](docs/APACHE-LOCAL.md) pour le virtual host Apache/PHP-FPM utilisé localement.
 
 ## Lots
 Voir [ROADMAP.md](ROADMAP.md) : lots 1 à 9, livrables et critères de recette.
