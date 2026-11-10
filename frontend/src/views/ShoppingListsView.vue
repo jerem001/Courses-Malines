@@ -11,6 +11,10 @@ const itemUnit = ref('unit');
 const busy = ref(false);
 const error = ref('');
 const notice = ref('');
+const productQuery = ref('');
+const productResults = ref([]);
+const productSearching = ref(false);
+const productUnavailable = ref(false);
 
 function message(err) {
   return err.response?.data?.message || 'Une erreur est survenue. Réessaie.';
@@ -51,6 +55,38 @@ function createList() {
     await refresh();
     selected.value = lists.value.find((list) => list.id === data.id) || data;
     notice.value = 'Liste créée.';
+  });
+}
+
+async function searchProducts() {
+  if (productQuery.value.trim().length < 2) return;
+  productSearching.value = true;
+  error.value = '';
+  try {
+    const { data } = await api.get('/v1/products/search', { params: { q: productQuery.value.trim() } });
+    productResults.value = [
+      ...data.local.map((p) => ({ ...p, local: true })),
+      ...data.external.filter((p) => !data.local.some((local) => local.gtin === p.gtin)),
+    ];
+    productUnavailable.value = !!data.external_unavailable;
+  } catch (err) {
+    error.value = message(err);
+  } finally {
+    productSearching.value = false;
+  }
+}
+
+function addCatalogProduct(product) {
+  if (!selected.value) return;
+  run(async () => {
+    const saved = product.local
+      ? product
+      : (await api.post('/v1/products/import', { gtin: product.gtin })).data;
+    await api.post(`/v1/shopping-lists/${selected.value.id}/items`, {
+      product_id: saved.id, quantity: 1, unit: 'unit',
+    });
+    await refresh();
+    notice.value = 'Produit ajouté à la liste.';
   });
 }
 
@@ -149,6 +185,32 @@ onMounted(() => run(refresh));
       </div>
     </div>
 
+    <div class="shopping-product-search">
+      <h3>Rechercher un produit</h3>
+      <form @submit.prevent="searchProducts">
+        <label>Nom, marque ou code-barres
+          <input v-model="productQuery" minlength="2" maxlength="100" placeholder="Ex. : pâtes, lait, 3017620422003" required />
+        </label>
+        <button :disabled="busy || productSearching || productQuery.trim().length < 2">
+          {{ productSearching ? 'Recherche…' : 'Rechercher' }}
+        </button>
+      </form>
+      <p v-if="productUnavailable">Open Food Facts est indisponible : résultats du catalogue local uniquement.</p>
+      <ul v-if="productResults.length" class="shopping-product-results">
+        <li v-for="product in productResults" :key="product.gtin || product.id">
+          <img v-if="product.image_url" :src="product.image_url" alt="" loading="lazy" />
+          <div>
+            <strong>{{ product.name }}</strong>
+            <small>{{ product.brand_name }} · {{ product.package_label || product.gtin }}</small>
+            <small v-if="product.nutriscore_grade">Nutri-Score {{ product.nutriscore_grade.toUpperCase() }}</small>
+          </div>
+          <button type="button" :disabled="busy" @click="addCatalogProduct(product)">Ajouter</button>
+        </li>
+      </ul>
+      <p v-else-if="productQuery && !productSearching">Tu peux aussi ajouter un article manuellement ci-dessous.</p>
+    </div>
+
+    <h3>Ajouter un article manuellement</h3>
     <form @submit.prevent="addItem">
       <label>Article
         <input v-model="itemName" maxlength="255" placeholder="Ex. : Pommes" required />
@@ -184,6 +246,12 @@ onMounted(() => run(refresh));
 </template>
 
 <style scoped>
+.shopping-product-search { margin: 20px 0 28px; padding-bottom: 22px; border-bottom: 1px solid #dce8df; }
+.shopping-product-results { list-style: none; padding: 0; }
+.shopping-product-results li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #dce8df; }
+.shopping-product-results img { width: 48px; height: 48px; object-fit: contain; }
+.shopping-product-results li div { flex: 1; min-width: 0; }
+.shopping-product-results small { display: block; color: #687a70; }
 .shopping-list-choices, .shopping-list-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .shopping-list-choices button { background: #e4f0e8; color: #176b49; }
 .shopping-list-choices button.selected { background: #176b49; color: white; }
