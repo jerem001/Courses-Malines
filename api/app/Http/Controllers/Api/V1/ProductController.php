@@ -7,7 +7,6 @@ use App\Models\Product;
 use App\Services\OpenFoodFactsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class ProductController extends Controller
 {
@@ -16,8 +15,8 @@ class ProductController extends Controller
         $data = $request->validate(['q' => ['required', 'string', 'min:2', 'max:100']]);
         $query = trim($data['q']);
         $local = Product::query()
-            ->where('name', 'ilike', '%' . addcslashes($query, '%_\\') . '%')
-            ->orWhere('brand_name', 'ilike', '%' . addcslashes($query, '%_\\') . '%')
+            ->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower(addcslashes($query, '%_\\')) . '%'])
+            ->orWhereRaw('LOWER(brand_name) LIKE ?', ['%' . strtolower(addcslashes($query, '%_\\')) . '%'])
             ->orWhere('gtin', $query)
             ->limit(12)->get();
 
