@@ -13,7 +13,7 @@ class OpenFoodFactsService
     public function lookup(string $gtin): ?array
     {
         $response = Http::acceptJson()->withHeaders([
-            'User-Agent' => config('services.openfoodfacts.user_agent', 'CoursesMalines/0.2 (contact: configure-OPENFOODFACTS_USER_AGENT)'),
+            'User-Agent' => config('services.openfoodfacts.user_agent'),
         ])->timeout(8)->get(self::BASE . '/api/v2/product/' . rawurlencode($gtin) . '.json', [
             'fields' => 'code,product_name,product_name_fr,brands,quantity,image_front_url,nutriscore_grade,nova_group,allergens_tags,nutriments',
         ]);
@@ -28,7 +28,7 @@ class OpenFoodFactsService
     public function search(string $query): array
     {
         $response = Http::acceptJson()->withHeaders([
-            'User-Agent' => config('services.openfoodfacts.user_agent', 'CoursesMalines/0.2 (contact: configure-OPENFOODFACTS_USER_AGENT)'),
+            'User-Agent' => config('services.openfoodfacts.user_agent'),
         ])->timeout(8)->get(self::BASE . '/cgi/search.pl', [
             'search_terms' => $query,
             'search_simple' => 1,
