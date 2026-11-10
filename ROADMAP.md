@@ -39,6 +39,18 @@ Comparer le coût **réel du panier complet**, promotions et qualité nutritionn
 
 **Recette :** aucun tarif présenté comme actuel sans horodatage/source ; prix spécifiques au Drive, jamais à l'enseigne entière.
 
+### Lot 3 bis — Import intelligent des achats (tickets et PDF) · v0.3.1
+- [ ] Import de photos de tickets (JPG/PNG) et de tickets ou factures PDF, y compris les PDF scannés.
+- [ ] Extraction du texte natif des PDF ou OCR pour les images ; repérage de l'enseigne, de la date, des libellés, quantités et prix lorsque disponibles.
+- [ ] Nettoyage des libellés abrégés et rapprochement avec le catalogue (GTIN si présent, marque, format, correspondances probables).
+- [ ] Écran de vérification des articles détectés, gestion des doublons et des correspondances incertaines.
+- [ ] Ajout sélectif aux produits favoris ou à une liste de courses existante ; aucune insertion silencieuse.
+- [ ] Historique d'imports et fréquence d'achat optionnels pour suggérer les produits habituels.
+- [ ] Contrôle de la confidentialité : fichiers temporaires, suppression après traitement par défaut, limites de taille, contrôle d'accès et absence de conservation non consentie.
+- [ ] Tests sur tickets flous, multi-pages, libellés abrégés, erreurs OCR et prix/remises distincts.
+
+**Recette :** un ticket photo ou PDF permet de proposer une liste d'articles vérifiable, sans inventer les correspondances incertaines ; l'utilisateur choisit ceux à ajouter à ses favoris.
+
 ### Lot 4 — Promotions et optimisation du panier · v0.4.0
 - [ ] Remises immédiates, pourcentages, lots, 2+1 gratuit et paliers d’achat.
 - [ ] Coupons, cartes de fidélité, remises différées et règles de cumul distinctes.
@@ -91,7 +103,7 @@ Comparer le coût **réel du panier complet**, promotions et qualité nutritionn
 **Recette :** parcours comparaison → panier guidé ou automatique opérationnel avec données fiables et protections actives.
 
 ## Évolutions après la v1.0.0
-Enseignes supplémentaires, alternatives locales, import de tickets de caisse, prévisions de budget, suggestions personnalisées respectueuses de la vie privée.
+Enseignes supplémentaires, alternatives locales, prévisions de budget, suggestions personnalisées respectueuses de la vie privée.
 
 ## Principes transversaux
 Tests automatisés, cloisonnement des données par utilisateur, migrations réversibles, observabilité sans données sensibles. Prévoir des caches et limites d'appels aux fournisseurs. Ne jamais traiter une remise fidélité différée comme une remise immédiate. Ne pas inventer de prix ou promettre un connecteur non vérifié. Nutri-Score et NOVA sont présentés comme indicateurs, non comme garantie de santé.
@@ -99,4 +111,4 @@ Tests automatisés, cloisonnement des données par utilisateur, migrations réve
 ## Décisions ouvertes
 Commune/code postal ; premier Drive et source fiable de prix ; fournisseur de géocodage ; domaine/HTTPS et sauvegardes Debian ; conditions d'ouverture publique.
 
-**Dépendances principales :** Lots 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. Sécurité et qualité des données commencent dès le lot 1.
+**Dépendances principales :** Lots 1 → 2 → 3 → 3 bis → 4 → 5 → 6 → 7 → 8 → 9. Sécurité et qualité des données commencent dès le lot 1.
