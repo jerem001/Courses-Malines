@@ -11,10 +11,12 @@ class PreferenceController extends Controller
 {
     public function show(Request $request)
     {
-        return UserPreference::firstOrCreate(
+        $preferences = UserPreference::firstOrCreate(
             ['user_id' => $request->user()->id],
             ['radius_km' => 15, 'search_mode' => 'both'],
         );
+
+        return response()->json($preferences, 200);
     }
 
     public function update(Request $request)
@@ -26,9 +28,11 @@ class PreferenceController extends Controller
             'search_mode' => ['required', Rule::in(['both', 'favorites', 'radius'])],
         ]);
 
-        return UserPreference::updateOrCreate(
+        $preferences = UserPreference::updateOrCreate(
             ['user_id' => $request->user()->id],
             $data,
         );
+
+        return response()->json($preferences, 200);
     }
 }
