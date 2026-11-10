@@ -18,6 +18,7 @@ async function logout() {
       <nav v-if="auth.token">
         <RouterLink to="/">Accueil</RouterLink>
         <RouterLink to="/stores">Magasins</RouterLink>
+        <RouterLink to="/shopping-lists">Listes de courses</RouterLink>
         <button class="link" @click="logout">Déconnexion</button>
       </nav>
     </div>
