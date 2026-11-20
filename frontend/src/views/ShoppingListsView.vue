@@ -15,6 +15,8 @@ const productQuery = ref('');
 const productResults = ref([]);
 const productSearching = ref(false);
 const productUnavailable = ref(false);
+const priceResults = ref({});
+const priceLoading = ref(null);
 
 function message(err) {
   return err.response?.data?.message || 'Une erreur est survenue. Réessaie.';
@@ -73,6 +75,20 @@ async function searchProducts() {
     error.value = message(err);
   } finally {
     productSearching.value = false;
+  }
+}
+
+async function showPrices(product) {
+  if (!product.gtin) return;
+  priceLoading.value = product.gtin;
+  error.value = '';
+  try {
+    const { data } = await api.get('/v1/prices/product', { params: { gtin: product.gtin } });
+    priceResults.value = { ...priceResults.value, [product.gtin]: data };
+  } catch (err) {
+    error.value = message(err);
+  } finally {
+    priceLoading.value = null;
   }
 }
 
@@ -204,7 +220,20 @@ onMounted(() => run(refresh));
             <small>{{ product.brand_name }} · {{ product.package_label || product.gtin }}</small>
             <small v-if="product.nutriscore_grade">Nutri-Score {{ product.nutriscore_grade.toUpperCase() }}</small>
           </div>
+          <button type="button" :disabled="busy || priceLoading === product.gtin" @click="showPrices(product)">Prix</button>
           <button type="button" :disabled="busy" @click="addCatalogProduct(product)">Ajouter</button>
+          <div v-if="priceResults[product.gtin]" class="price-details">
+            <p>{{ priceResults[product.gtin].count }} relevé(s) Open Prices{{ priceResults[product.gtin].partial ? ' (première page uniquement)' : '' }}</p>
+            <ul v-if="priceResults[product.gtin].prices.length">
+              <li v-for="price in priceResults[product.gtin].prices" :key="price.id">
+                <strong>{{ price.price.toFixed(2) }} €</strong>
+                <span>{{ price.store_name || 'Magasin inconnu' }}{{ price.store_city ? ' — ' + price.store_city : '' }}</span>
+                <small>Relevé du {{ price.date }}{{ price.price_is_discounted ? ' · Promotion' : '' }}</small>
+              </li>
+            </ul>
+            <p v-else>Aucun prix en euros disponible pour ce code-barres.</p>
+            <small>Prix observés, non garantis actuellement. Source : Open Prices (OdBL).</small>
+          </div>
         </li>
       </ul>
       <p v-else-if="productQuery && !productSearching">Tu peux aussi ajouter un article manuellement ci-dessous.</p>
@@ -246,6 +275,10 @@ onMounted(() => run(refresh));
 </template>
 
 <style scoped>
+.price-details { flex-basis: 100%; background: #f5f8f5; border-radius: 8px; padding: 12px; }
+.price-details ul { padding-left: 16px; }
+.price-details li { display: flex; flex-wrap: wrap; gap: 8px; }
+.shopping-product-results li { flex-wrap: wrap; }
 .shopping-product-search { margin: 20px 0 28px; padding-bottom: 22px; border-bottom: 1px solid #dce8df; }
 .shopping-product-results { list-style: none; padding: 0; }
 .shopping-product-results li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #dce8df; }
