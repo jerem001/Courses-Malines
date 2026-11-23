@@ -17,6 +17,7 @@ const productSearching = ref(false);
 const productUnavailable = ref(false);
 const priceResults = ref({});
 const priceLoading = ref(null);
+const onlyNearbyPrices = ref(true);
 
 function message(err) {
   return err.response?.data?.message || 'Une erreur est survenue. Réessaie.';
@@ -224,14 +225,17 @@ onMounted(() => run(refresh));
           <button type="button" :disabled="busy" @click="addCatalogProduct(product)">Ajouter</button>
           <div v-if="priceResults[product.gtin]" class="price-details">
             <p>{{ priceResults[product.gtin].count }} relevé(s) Open Prices{{ priceResults[product.gtin].partial ? ' (première page uniquement)' : '' }}</p>
-            <ul v-if="priceResults[product.gtin].prices.length">
-              <li v-for="price in priceResults[product.gtin].prices" :key="price.id">
+            <p v-if="priceResults[product.gtin].scope?.geographic_filter_available"><small>Rayon de {{ priceResults[product.gtin].scope.radius_km }} km autour des magasins favoris géolocalisés (pas du domicile). {{ priceResults[product.gtin].scope_count }} relevé(s) dans le périmètre.</small></p>
+            <p v-else><small>Filtre géographique indisponible : ajoute un magasin favori avec coordonnées pour définir un point de référence.</small></p>
+            <label v-if="priceResults[product.gtin].scope?.geographic_filter_available"><input type="checkbox" v-model="onlyNearbyPrices" /> Afficher seulement les prix du périmètre</label>
+            <ul v-if="priceResults[product.gtin].prices.some(p => !onlyNearbyPrices || !priceResults[product.gtin].scope?.geographic_filter_available || p.in_selected_scope)">
+              <li v-for="price in priceResults[product.gtin].prices.filter(p => !onlyNearbyPrices || !priceResults[product.gtin].scope?.geographic_filter_available || p.in_selected_scope)" :key="price.id">
                 <strong>{{ price.price.toFixed(2) }} €</strong>
                 <span>{{ price.store_name || 'Magasin inconnu' }}{{ price.store_city ? ' — ' + price.store_city : '' }}</span>
-                <small>Relevé du {{ price.date }}{{ price.price_is_discounted ? ' · Promotion' : '' }}</small>
+                <small>Relevé du {{ price.date }}{{ price.price_is_discounted ? ' · Promotion' : '' }}{{ price.distance_to_nearest_favorite_km !== null ? ' · ' + price.distance_to_nearest_favorite_km + ' km du favori le plus proche' : '' }}{{ price.is_favorite_store ? ' · Magasin favori' : '' }}</small>
               </li>
             </ul>
-            <p v-else>Aucun prix en euros disponible pour ce code-barres.</p>
+            <p v-else>Aucun relevé dans le périmètre affiché. Désactive le filtre pour voir les autres relevés disponibles.</p>
             <small>Prix observés, non garantis actuellement. Source : Open Prices (OdBL).</small>
           </div>
         </li>
