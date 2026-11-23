@@ -23,6 +23,6 @@ class CatalogController extends Controller
         return Store::with('brand')
             ->when(isset($data['brand_id']), fn ($q) => $q->where('brand_id', $data['brand_id']))
             ->orderBy('name')
-            ->paginate(25);
+            ->paginate(100);
     }
 }
