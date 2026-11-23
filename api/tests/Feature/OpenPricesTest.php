@@ -30,7 +30,10 @@ class OpenPricesTest extends TestCase
         $this->getJson($url)->assertOk()
             ->assertJsonPath('prices.0.price', 3.49)
             ->assertJsonPath('prices.0.store_name', 'Magasin test')
-            ->assertJsonPath('count', 1);
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('scope.radius_km', 15)
+            ->assertJsonPath('scope.geographic_filter_available', false)
+            ->assertJsonPath('prices.0.in_selected_scope', false);
         $this->getJson($url)->assertOk();
         Http::assertSentCount(1);
     }
