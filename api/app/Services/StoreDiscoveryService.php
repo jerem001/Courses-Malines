@@ -4,6 +4,8 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
 
 class StoreDiscoveryService
 {
@@ -38,9 +40,25 @@ class StoreDiscoveryService
     {
         $radiusMeters = $radiusKm * 1000;
         $query = '[out:json][timeout:25];(nwr["shop"="supermarket"](around:' . $radiusMeters . ',' . $latitude . ',' . $longitude . '););out center tags;';
-        $response = Http::asForm()->acceptJson()->connectTimeout(5)->timeout(35)
-            ->post('https://overpass-api.de/api/interpreter', ['data' => $query]);
-        $response->throw();
+        $response = null;
+        $failures = [];
+        foreach (['https://overpass.kumi.systems/api/interpreter', 'https://overpass.nchc.org.tw/api/interpreter', 'https://overpass-api.de/api/interpreter'] as $endpoint) {
+            try {
+                $candidate = Http::asForm()->acceptJson()->connectTimeout(4)->timeout(18)
+                    ->post($endpoint, ['data' => $query]);
+                if ($candidate->successful() && is_array($candidate->json('elements'))) {
+                    $response = $candidate;
+                    break;
+                }
+                $failures[] = parse_url($endpoint, PHP_URL_HOST) . ': HTTP ' . $candidate->status();
+            } catch (ConnectionException $exception) {
+                $failures[] = parse_url($endpoint, PHP_URL_HOST) . ': ' . $exception->getMessage();
+            }
+        }
+        if ($response === null) {
+            Log::warning('All Overpass endpoints failed', ['failures' => $failures]);
+            throw new ConnectionException('Aucun serveur Overpass accessible : ' . implode('; ', $failures));
+        }
         return collect($response->json('elements', []))
             ->filter(fn ($item) => isset($item['id'], $item['type']))
             ->map(function ($item) {
