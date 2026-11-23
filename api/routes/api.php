@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ShoppingListController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PriceController;
+use App\Http\Controllers\Api\V1\StoreDiscoveryController;
 
 Route::prefix('v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
@@ -18,6 +19,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('brands', [CatalogController::class, 'brands']);
         Route::get('stores', [CatalogController::class, 'stores']);
+        Route::post('stores/import', [StoreDiscoveryController::class, 'import'])->middleware('throttle:3,1');
 
         Route::get('preferences', [PreferenceController::class, 'show']);
         Route::put('preferences', [PreferenceController::class, 'update']);
