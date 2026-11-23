@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Store;
+use App\Models\UserPreference;
 use App\Services\OpenPricesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PriceController extends Controller
@@ -19,7 +22,65 @@ class PriceController extends Controller
         ]);
 
         try {
-            return response()->json($prices->forProduct($data['gtin']));
+            $result = $prices->forProduct($data['gtin']);
+            $preferences = UserPreference::where('user_id', $request->user()->id)->first();
+            $radius = $preferences?->radius_km ?? 15;
+            $mode = $preferences?->search_mode ?? 'both';
+
+            $favoriteIds = DB::table('favorite_stores')
+                ->where('user_id', $request->user()->id)
+                ->pluck('store_id')->all();
+            $stores = Store::with('brand')->get();
+            $favorites = $stores->whereIn('id', $favoriteIds);
+            // Until a geocoded home/search location exists, favorite stores are the
+            // only known geographic anchors. Never silently assume the user's city center.
+            $anchors = $favorites->filter(fn ($s) => $s->latitude !== null && $s->longitude !== null);
+            $filtered = collect($result['prices'])->map(function ($price) use ($stores, $favoriteIds, $anchors, $radius, $mode) {
+                $lat = $price['store_latitude'] ?? null;
+                $lon = $price['store_longitude'] ?? null;
+                $nearest = null;
+                if ($lat !== null && $lon !== null && $anchors->isNotEmpty()) {
+                    $nearest = $anchors->map(fn ($store) => $this->distanceKm(
+                        (float) $lat, (float) $lon, (float) $store->latitude, (float) $store->longitude
+                    ))->min();
+                }
+
+                // Match only when an OSM identifier explicitly identifies the store.
+                // Brand/name/postcode alone are not a reliable store identifier.
+                $matched = $stores->first(function ($store) use ($price) {
+                    $external = $store->external_id;
+                    return $external && $price['location_osm_id'] !== null
+                        && in_array($external, [
+                            (string) $price['location_osm_id'],
+                            ($price['location_osm_type'] ?? '') . '/' . $price['location_osm_id'],
+                        ], true);
+                });
+                $isFavorite = $matched && in_array($matched->id, $favoriteIds);
+                $price['matched_store_id'] = $matched?->id;
+                $price['matched_store_name'] = $matched?->name;
+                $price['is_favorite_store'] = (bool) $isFavorite;
+                $price['distance_to_nearest_favorite_km'] = $nearest === null ? null : round($nearest, 1);
+                $price['within_radius_of_favorite'] = $nearest === null ? null : $nearest <= $radius;
+                $price['in_selected_scope'] = match ($mode) {
+                    'favorites' => (bool) $isFavorite,
+                    'radius' => $nearest !== null && $nearest <= $radius,
+                    default => (bool) $isFavorite || ($nearest !== null && $nearest <= $radius),
+                };
+                return $price;
+            });
+
+            $result['prices'] = $filtered->values()->all();
+            $result['count'] = $filtered->count();
+            $result['scope_count'] = $filtered->where('in_selected_scope', true)->count();
+            $result['scope'] = [
+                'mode' => $mode,
+                'radius_km' => $radius,
+                'reference' => $anchors->isNotEmpty() ? 'favorite_stores' : null,
+                'favorite_stores_count' => count($favoriteIds),
+                'geographic_filter_available' => $anchors->isNotEmpty(),
+                'note' => 'Le rayon est mesure autour des magasins favoris geolocalises, pas autour du domicile.',
+            ];
+            return response()->json($result);
         } catch (ConnectionException|RequestException $exception) {
             Log::warning('Open Prices request failed', [
                 'gtin' => $data['gtin'],
@@ -29,5 +90,14 @@ class PriceController extends Controller
             ]);
             return response()->json(['message' => 'Open Prices est temporairement indisponible.'], 503);
         }
+    }
+
+    private function distanceKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lonDelta = deg2rad($lon2 - $lon1);
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
+        return 6371 * 2 * asin(min(1.0, sqrt($a)));
     }
 }
