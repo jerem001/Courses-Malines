@@ -225,7 +225,7 @@ onMounted(() => run(refresh));
           <button type="button" :disabled="busy" @click="addCatalogProduct(product)">Ajouter</button>
           <div v-if="priceResults[product.gtin]" class="price-details">
             <p>{{ priceResults[product.gtin].count }} relevé(s) Open Prices{{ priceResults[product.gtin].partial ? ' (première page uniquement)' : '' }}</p>
-            <p v-if="priceResults[product.gtin].scope?.geographic_filter_available"><small>Rayon de {{ priceResults[product.gtin].scope.radius_km }} km autour des magasins favoris géolocalisés (pas du domicile). {{ priceResults[product.gtin].scope_count }} relevé(s) dans le périmètre.</small></p>
+            <p v-if="priceResults[product.gtin].scope?.geographic_filter_available"><small>Rayon de {{ priceResults[product.gtin].scope.radius_km }} km autour {{ priceResults[product.gtin].scope.reference === 'commune' ? 'du centre de la commune configurée' : 'des magasins favoris géolocalisés' }}. {{ priceResults[product.gtin].scope_count }} relevé(s) dans le périmètre.</small></p>
             <p v-else><small>Filtre géographique indisponible : ajoute un magasin favori avec coordonnées pour définir un point de référence.</small></p>
             <label v-if="priceResults[product.gtin].scope?.geographic_filter_available"><input type="checkbox" v-model="onlyNearbyPrices" /> Afficher seulement les prix du périmètre</label>
             <ul v-if="priceResults[product.gtin].prices.some(p => !onlyNearbyPrices || !priceResults[product.gtin].scope?.geographic_filter_available || p.in_selected_scope)">
