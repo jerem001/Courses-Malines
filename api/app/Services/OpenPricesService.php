@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 
 class OpenPricesService
 {
@@ -13,7 +14,13 @@ class OpenPricesService
         return Cache::remember('openprices:product:' . $gtin, now()->addMinutes(15), function () use ($gtin) {
             $response = Http::acceptJson()
                 ->withHeaders(['User-Agent' => config('services.openfoodfacts.user_agent')])
-                ->timeout(10)
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->retry(2, 300, function ($exception) {
+                    return $exception instanceof ConnectionException
+                        || ($exception instanceof RequestException
+                            && ($exception->response->serverError() || $exception->response->status() === 429));
+                })
                 ->get('https://prices.openfoodfacts.org/api/v1/prices', [
                     'product_code' => $gtin,
                     'currency' => 'EUR',
