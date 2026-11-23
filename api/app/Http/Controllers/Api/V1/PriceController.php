@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Store;
 use App\Models\UserPreference;
 use App\Services\OpenPricesService;
+use App\Services\StoreDiscoveryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Client\ConnectionException;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 
 class PriceController extends Controller
 {
-    public function product(Request $request, OpenPricesService $prices): JsonResponse
+    public function product(Request $request, OpenPricesService $prices, StoreDiscoveryService $discovery): JsonResponse
     {
         $data = $request->validate([
             'gtin' => ['required', 'regex:/^\\d{8,14}$/'],
@@ -35,11 +36,16 @@ class PriceController extends Controller
             // Until a geocoded home/search location exists, favorite stores are the
             // only known geographic anchors. Never silently assume the user's city center.
             $anchors = $favorites->filter(fn ($s) => $s->latitude !== null && $s->longitude !== null);
-            $filtered = collect($result['prices'])->map(function ($price) use ($stores, $favoriteIds, $anchors, $radius, $mode) {
+            $center = ($preferences?->city || $preferences?->postal_code)
+                ? $discovery->center($preferences?->city, $preferences?->postal_code)
+                : null;
+            $filtered = collect($result['prices'])->map(function ($price) use ($stores, $favoriteIds, $anchors, $center, $radius, $mode) {
                 $lat = $price['store_latitude'] ?? null;
                 $lon = $price['store_longitude'] ?? null;
                 $nearest = null;
-                if ($lat !== null && $lon !== null && $anchors->isNotEmpty()) {
+                if ($lat !== null && $lon !== null && $center !== null) {
+                    $nearest = $this->distanceKm((float) $lat, (float) $lon, $center['latitude'], $center['longitude']);
+                } elseif ($lat !== null && $lon !== null && $anchors->isNotEmpty()) {
                     $nearest = $anchors->map(fn ($store) => $this->distanceKm(
                         (float) $lat, (float) $lon, (float) $store->latitude, (float) $store->longitude
                     ))->min();
@@ -75,10 +81,10 @@ class PriceController extends Controller
             $result['scope'] = [
                 'mode' => $mode,
                 'radius_km' => $radius,
-                'reference' => $anchors->isNotEmpty() ? 'favorite_stores' : null,
+                'reference' => $center !== null ? 'commune' : ($anchors->isNotEmpty() ? 'favorite_stores' : null),
                 'favorite_stores_count' => count($favoriteIds),
-                'geographic_filter_available' => $anchors->isNotEmpty(),
-                'note' => 'Le rayon est mesure autour des magasins favoris geolocalises, pas autour du domicile.',
+                'geographic_filter_available' => $center !== null || $anchors->isNotEmpty(),
+                'note' => $center !== null ? 'Rayon autour du centre de la commune.' : 'Rayon autour des magasins favoris geolocalises.',
             ];
             return response()->json($result);
         } catch (ConnectionException|RequestException $exception) {
