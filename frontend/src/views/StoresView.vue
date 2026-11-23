@@ -8,6 +8,7 @@ const stores = ref([]);
 const favorites = ref([]);
 const notice = ref('');
 const error = ref('');
+const importing = ref(false);
 
 async function load() {
   try {
@@ -17,7 +18,7 @@ async function load() {
       api.get('/v1/stores'),
       api.get('/v1/favorite-stores'),
     ]);
-    prefs.value = p.data;
+    prefs.value = { ...p.data, city: p.data.city || 'Le Mans', postal_code: p.data.postal_code || '72000' };
     brands.value = b.data;
     stores.value = s.data.data;
     favorites.value = f.data;
@@ -39,6 +40,25 @@ async function save() {
     notice.value = 'Préférences enregistrées';
   } catch {
     error.value = 'Enregistrement impossible';
+  }
+}
+
+async function importStores() {
+  importing.value = true;
+  error.value = '';
+  notice.value = '';
+  try {
+    await save();
+    if (error.value) return;
+    const { data } = await api.post('/v1/stores/import');
+    const [s, b] = await Promise.all([api.get('/v1/stores'), api.get('/v1/brands')]);
+    stores.value = s.data.data;
+    brands.value = b.data;
+    notice.value = `${data.imported} magasin(s) trouvé(s) et enregistré(s) autour de ${data.center.city}.`;
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Import des magasins impossible.';
+  } finally {
+    importing.value = false;
   }
 }
 
@@ -87,11 +107,12 @@ onMounted(load);
   <section class="card">
     <h2>Enseignes initiales</h2>
     <p>{{ brands.map((brand) => brand.name).join(' · ') }}</p>
-    <h2>Drives référencés</h2>
-    <p v-if="!stores.length">Aucun Drive importé pour l'instant. La découverte géographique sera ajoutée ultérieurement.</p>
+    <h2>Magasins référencés</h2>
+    <button type="button" :disabled="importing" @click="importStores">{{ importing ? 'Recherche en cours…' : 'Importer les magasins autour de ma commune' }}</button>
+    <p v-if="!stores.length">Aucun magasin importé pour l'instant. Lance la découverte géographique.</p>
     <ul>
       <li v-for="store in stores" :key="store.id">
-        {{ store.name }} — {{ store.city }}
+        {{ store.name }} — {{ store.city || store.postal_code || 'Ville non renseignée' }}
         <button class="small" @click="toggle(store)">
           {{ favorites.some((s) => s.id === store.id) ? 'Retirer des favoris' : 'Ajouter aux favoris' }}
         </button>
