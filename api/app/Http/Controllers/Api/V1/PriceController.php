@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Log;
 
 class PriceController extends Controller
 {
@@ -20,6 +21,12 @@ class PriceController extends Controller
         try {
             return response()->json($prices->forProduct($data['gtin']));
         } catch (ConnectionException|RequestException $exception) {
+            Log::warning('Open Prices request failed', [
+                'gtin' => $data['gtin'],
+                'exception' => get_class($exception),
+                'upstream_status' => $exception instanceof RequestException ? $exception->response->status() : null,
+                'error' => $exception->getMessage(),
+            ]);
             return response()->json(['message' => 'Open Prices est temporairement indisponible.'], 503);
         }
     }
