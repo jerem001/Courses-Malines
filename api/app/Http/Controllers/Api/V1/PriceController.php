@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Store;
+use App\Models\Product;
+use App\Services\PriceObservationService;
 use App\Models\UserPreference;
 use App\Services\OpenPricesService;
 use App\Services\StoreDiscoveryService;
@@ -16,7 +18,7 @@ use Illuminate\Support\Facades\Log;
 
 class PriceController extends Controller
 {
-    public function product(Request $request, OpenPricesService $prices, StoreDiscoveryService $discovery): JsonResponse
+    public function product(Request $request, OpenPricesService $prices, StoreDiscoveryService $discovery, PriceObservationService $observations): JsonResponse
     {
         $data = $request->validate([
             'gtin' => ['required', 'regex:/^\\d{8,14}$/'],
@@ -39,7 +41,8 @@ class PriceController extends Controller
             $center = ($preferences?->city || $preferences?->postal_code)
                 ? $discovery->center($preferences?->city, $preferences?->postal_code)
                 : null;
-            $filtered = collect($result['prices'])->map(function ($price) use ($stores, $favoriteIds, $anchors, $center, $radius, $mode) {
+            $product = Product::where('gtin', $data['gtin'])->first();
+            $filtered = collect($result['prices'])->map(function ($price) use ($stores, $favoriteIds, $anchors, $center, $radius, $mode, $product, $observations) {
                 $lat = $price['store_latitude'] ?? null;
                 $lon = $price['store_longitude'] ?? null;
                 $nearest = null;
@@ -54,12 +57,11 @@ class PriceController extends Controller
                 // Match only when an OSM identifier explicitly identifies the store.
                 // Brand/name/postcode alone are not a reliable store identifier.
                 $matched = $stores->first(function ($store) use ($price) {
-                    $external = $store->external_id;
-                    return $external && $price['location_osm_id'] !== null
-                        && in_array($external, [
-                            (string) $price['location_osm_id'],
-                            ($price['location_osm_type'] ?? '') . '/' . $price['location_osm_id'],
-                        ], true);
+                    $type = strtoupper((string) ($price['location_osm_type'] ?? ''));
+                    $id = (string) ($price['location_osm_id'] ?? '');
+                    return in_array($type, ['NODE', 'WAY', 'RELATION'], true)
+                        && ctype_digit($id)
+                        && strtoupper((string) $store->external_id) === $type . '/' . $id;
                 });
                 $isFavorite = $matched && in_array($matched->id, $favoriteIds);
                 $price['matched_store_id'] = $matched?->id;
@@ -72,6 +74,31 @@ class PriceController extends Controller
                     'radius' => $nearest !== null && $nearest <= $radius,
                     default => (bool) $isFavorite || ($nearest !== null && $nearest <= $radius),
                 };
+                $price['observation_id'] = null;
+                $basis = match (strtoupper((string) ($price['price_per'] ?? ''))) {
+                    '', 'UNIT', 'ITEM' => 'item',
+                    'KILOGRAM', 'KG' => 'kg',
+                    'LITER', 'LITRE', 'L' => 'l',
+                    default => null,
+                };
+                if ($product && $matched && $basis !== null && $price['id'] !== null) {
+                    $observation = $observations->record([
+                        'product_id' => $product->id,
+                        'store_id' => $matched->id,
+                        'source' => 'open_prices',
+                        'source_reference' => (string) $price['id'],
+                        'amount_minor' => (int) round($price['price'] * 100),
+                        'currency' => 'EUR',
+                        'price_basis' => $basis,
+                        'regular_amount_minor' => is_numeric($price['price_without_discount'])
+                            ? (int) round($price['price_without_discount'] * 100) : null,
+                        'promotion' => $price['price_is_discounted']
+                            ? ['discount_type' => $price['discount_type']] : null,
+                        'observed_at' => $price['date'],
+                        'confidence' => 'observed',
+                    ]);
+                    $price['observation_id'] = $observation->id;
+                }
                 return $price;
             });
 
