@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { api } from '../lib/api';
+import CarrefourImportPanel from './CarrefourImportPanel.vue';
 
 const prefs = ref({ city: '', postal_code: '', radius_km: 15, search_mode: 'both' });
 const brands = ref([]);
@@ -119,4 +120,5 @@ onMounted(load);
       </li>
     </ul>
   </section>
+  <CarrefourImportPanel />
 </template>
