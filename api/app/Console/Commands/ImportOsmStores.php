@@ -45,8 +45,18 @@ class ImportOsmStores extends Command
                 if ($brandName === null) {
                     continue;
                 }
-                $id = $tags['@id'] ?? $feature['id'] ?? null;
-                if (!is_string($id) || !preg_match('~^(node|way|relation)/([0-9]+)$~i', $id, $matches)) {
+                $type = strtolower((string) ($tags['@type'] ?? ''));
+                $osmId = $tags['@id'] ?? null;
+                $id = $feature['id'] ?? null;
+                if (in_array($type, ['node', 'way', 'relation'], true)
+                    && (is_int($osmId) || is_string($osmId))
+                    && preg_match('/^[0-9]+$/D', (string) $osmId)) {
+                    $externalId = strtoupper($type) . '/' . $osmId;
+                } elseif (is_string($id) && preg_match('~^(node|way|relation)/([0-9]+)$~i', $id, $matches)) {
+                    $externalId = strtoupper($matches[1]) . '/' . $matches[2];
+                } elseif (is_string($id) && preg_match('/^([nw])([0-9]+)$/D', $id, $matches)) {
+                    $externalId = ($matches[1] === 'n' ? 'NODE' : 'WAY') . '/' . $matches[2];
+                } else {
                     continue;
                 }
                 $point = $this->point($feature['geometry'] ?? []);
@@ -62,7 +72,7 @@ class ImportOsmStores extends Command
                 };
                 $brand = Brand::firstOrCreate(['slug' => $slug], ['name' => $brandName]);
                 Store::updateOrCreate(
-                    ['external_id' => strtoupper($matches[1]) . '/' . $matches[2]],
+                    ['external_id' => $externalId],
                     [
                         'brand_id' => $brand->id,
                         'name' => $tags['name'] ?? $brandName,
