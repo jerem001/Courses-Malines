@@ -25,6 +25,7 @@ Route::prefix('v1')->group(function () {
         Route::put('preferences', [PreferenceController::class, 'update']);
 
         Route::post('prices/import/carrefour', [\App\Http\Controllers\Api\V1\CarrefourImportController::class, 'store'])->middleware('throttle:10,1');
+        Route::post('prices/import/carrefour-browser', [\App\Http\Controllers\Api\V1\CarrefourBrowserImportController::class, 'store'])->middleware('throttle:10,1');
         Route::get('prices/product', [PriceController::class, 'product'])->middleware('throttle:30,1');
         Route::get('products/search', [ProductController::class, 'search'])->middleware('throttle:30,1');
         Route::post('products/import', [ProductController::class, 'import'])->middleware('throttle:30,1');
