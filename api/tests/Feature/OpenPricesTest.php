@@ -38,6 +38,39 @@ class OpenPricesTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_known_store_prices_are_persisted_without_duplicates(): void
+    {
+        $brand = \App\Models\Brand::create(['name' => 'Test', 'slug' => 'test']);
+        $store = \App\Models\Store::create([
+            'brand_id' => $brand->id, 'name' => 'Test store', 'external_id' => 'WAY/123',
+        ]);
+        $product = \App\Models\Product::create([
+            'name' => 'Test product', 'gtin' => '3017620422003', 'source' => 'openfoodfacts',
+        ]);
+        $item = [
+            'id' => 12, 'product_code' => $product->gtin, 'price' => 3.49,
+            'currency' => 'EUR', 'date' => '2026-11-18',
+            'location' => ['osm_id' => 123, 'osm_type' => 'way'],
+        ];
+        Http::fake(['prices.openfoodfacts.org/*' => Http::response([
+            'items' => [$item, array_replace($item, [
+                'id' => 13, 'location' => ['osm_id' => 123, 'osm_type' => 'node'],
+            ])], 'pages' => 1,
+        ])]);
+        $this->actingAs(User::factory()->create(), 'sanctum');
+        $url = '/api/v1/prices/product?gtin=' . $product->gtin;
+        $this->getJson($url)->assertOk()
+            ->assertJsonPath('prices.0.matched_store_id', $store->id)
+            ->assertJsonPath('prices.1.matched_store_id', null);
+        $this->getJson($url)->assertOk();
+        $this->assertDatabaseCount('price_observations', 1);
+        $this->assertDatabaseHas('price_observations', [
+            'product_id' => $product->id, 'store_id' => $store->id,
+            'source' => 'open_prices', 'source_reference' => '12',
+            'amount_minor' => 349, 'user_id' => null,
+        ]);
+    }
+
     public function test_prices_require_authentication_and_valid_gtin(): void
     {
         $this->getJson('/api/v1/prices/product?gtin=3017620422003')->assertUnauthorized();
