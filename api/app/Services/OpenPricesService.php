@@ -55,8 +55,8 @@ class OpenPricesService
                         'store_country' => $location['osm_address_country_code'] ?? null,
                         'store_latitude' => isset($location['osm_lat']) ? (float) $location['osm_lat'] : null,
                         'store_longitude' => isset($location['osm_lon']) ? (float) $location['osm_lon'] : null,
-                        'location_osm_id' => $p['location_osm_id'] ?? null,
-                        'location_osm_type' => $p['location_osm_type'] ?? null,
+                        'location_osm_id' => $p['location_osm_id'] ?? $location['osm_id'] ?? null,
+                        'location_osm_type' => $p['location_osm_type'] ?? $location['osm_type'] ?? null,
                         'proof_id' => $p['proof_id'] ?? null,
                         'source' => 'Open Prices',
                     ];
